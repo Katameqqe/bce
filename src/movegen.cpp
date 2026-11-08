@@ -26,6 +26,9 @@ std::unordered_map<int, Moves> generateMoves(const Board& board) {
     const int bishopOffsets[4][2] = {{1,1},{1,-1},{-1,-1},{-1,1}};
     const int rookOffsets[4][2] = {{1,0},{0,1},{0,-1},{-1,0}};
     const int queenOffsets[8][2] = {{1,1},{1,-1},{-1,-1},{-1,1},{1,0},{0,1},{0,-1},{-1,0}};
+    const int pawnAttackOffsets[2][2] = {{1,1}, {-1,1}};
+    const int pawnMoveOffsets[2][2] = {{0,1},{0,2}};
+    const int kingOffsets[8][2] = {{0,1},{1,1},{1,0},{1,-1},{-1,0},{-1,-1},{0,-1},{-1, 1}};
 
     for (int sq = 0; sq < 64; ++sq) {
         char piece = board.squares[sq];
@@ -111,7 +114,43 @@ std::unordered_map<int, Moves> generateMoves(const Board& board) {
                 }
             }
         }
-        // TODO: king, pawn
+
+        if (piece == 'P' || piece == 'p') {
+            int act = 1;
+            if (!isWhite) act = -1;
+            for (auto &o : pawnAttackOffsets) {
+                int f = file + o[0], r = rank + o[1]*act;
+                if (f < 0 || f > 7 || r < 0 || r > 7) continue;
+                int to = r * 8 + f;
+                char target = board.squares[to];
+                bool targetIsOwn = ((target >= 'A' && target <= 'Z') == isWhite);
+                if (targetIsOwn || target == '.') continue;
+                moves[sq].to.push_back(to);
+            }
+
+            for (auto &o : pawnMoveOffsets)
+            {
+                int f = file + o[0], r = rank + o[1]*act;
+                if (f < 0 || f > 7 || r < 0 || r > 7) continue;
+                int to = r * 8 + f;
+                char target = board.squares[to];
+                if (target == '.') moves[sq].to.push_back(to);
+                if ((isWhite && rank != 1) || (!isWhite && rank != 6)) break;
+            }
+        }
+
+        if (piece == 'K' || piece == 'k') {
+            for (auto& o: kingOffsets) {
+                int f = file+o[0], r = rank+o[1];
+                if (f < 0 || f > 7 || r < 0 || r > 7) continue;
+                int to = r * 8 + f;
+                char target = board.squares[to];
+                bool targetIsOwn = (target != '.') && ((target >= 'A' && target <= 'Z') == isWhite);
+                if (targetIsOwn) continue;
+                moves[sq].to.push_back(to);
+            }
+        }
+        // TODO: advanced moves, pins and checks
     }
     return moves;
 }
