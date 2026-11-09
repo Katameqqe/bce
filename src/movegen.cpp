@@ -135,6 +135,7 @@ std::unordered_map<int, Moves> generateMoves(const Board& board) {
                 int to = r * 8 + f;
                 char target = board.squares[to];
                 if (target == '.') moves[sq].to.push_back(to);
+                else break;
                 if ((isWhite && rank != 1) || (!isWhite && rank != 6)) break;
             }
         }
