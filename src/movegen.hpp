@@ -1,12 +1,28 @@
 #pragma once
 #include <vector>
 #include "board.hpp"
-#include "unordered_map"
 
-struct Moves {
-    std::vector<int> to;
-
-    std::string toString(int piece) const;
+enum class Promotion: uint8_t {
+    None,
+    Bishop,
+    Rook,
+    Knight,
+    Queen
 };
 
-std::unordered_map<int, Moves> generateMoves(const Board& board);
+enum class Flag: uint8_t {
+    Normal,
+    DoublePush,
+    EnPassant,
+    Castle
+};
+
+struct Move {
+    uint8_t from;
+    uint8_t to;
+    Promotion promotion;
+    Flag flag;
+};
+
+std::vector<Move> generateMoves(const Board& board);
+std::string MovesToString(std::vector<Move>& moves, int base);
