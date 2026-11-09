@@ -24,5 +24,6 @@ struct Move {
     Flag flag;
 };
 
+void makeMove(Board& board, const Move& m);
 std::vector<Move> generateMoves(const Board& board);
 std::string MovesToString(std::vector<Move>& moves, int base);

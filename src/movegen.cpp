@@ -24,6 +24,73 @@ std::string MovesToString(std::vector<Move>& moves, int base) {
     return out;
 }
 
+void makeMove(Board& board, const Move& m) {
+    char RemovedPiece = board.squares[m.to];
+    char movedPiece = board.squares[m.from];
+    board.squares[m.to] = movedPiece;
+    board.squares[m.from] = '.';
+    uint8_t res;
+    switch (m.flag)
+    {
+    case Flag::DoublePush:
+        res = (board.whiteToMove) ? m.to - 8 + m.to % 8 : m.to + 8 + m.to % 8;
+        board.enPassant = res;
+        break;
+    case Flag::EnPassant:
+        res = (board.whiteToMove) ? m.to - 8 + m.to % 8 : m.to + 8 + m.to % 8;
+        RemovedPiece = board.squares[res];
+        board.squares[res] = '.';
+    case Flag::Castle:
+        break;
+    }
+    if (m.flag != Flag::DoublePush) {
+        board.enPassant = 0;
+    }
+    if ((movedPiece == 'R' && (board.WhiteCastleK || board.WhiteCastleQ )) ||
+        (movedPiece == 'r' && (board.BlackCastleK || board.BlackCastleQ ))) {
+        uint8_t file = m.from % 8;
+        if (board.whiteToMove && (file == 0)) {
+            board.WhiteCastleQ = false;
+        } else if (board.whiteToMove && (file == 7)) {
+            board.WhiteCastleK = false;
+        }
+        if (!board.whiteToMove && (file == 0)) {
+            board.BlackCastleQ = false;
+        } else if (!board.whiteToMove && (file == 7)) {
+            board.BlackCastleK = false;
+        }
+    }
+    if ((movedPiece == 'K' && (board.WhiteCastleK || board.WhiteCastleQ )) ||
+        (movedPiece == 'k' && (board.BlackCastleK || board.BlackCastleQ ))) {
+        if (board.whiteToMove && m.from == (0*8+4)) {
+            board.WhiteCastleK = false;
+            board.WhiteCastleQ = false;
+        }
+        else if (!board.whiteToMove && m.from == (7*7+4)) {
+            board.BlackCastleK = false;
+            board.BlackCastleQ = false;
+        }
+    }
+    if (m.promotion != Promotion::None) {
+        switch (m.promotion)
+        {
+        case Promotion::Knight:
+            board.squares[m.to] = (board.whiteToMove) ? 'K' : 'k';
+            break;
+        case Promotion::Bishop:
+            board.squares[m.to] = (board.whiteToMove) ? 'B' : 'b';
+            break;
+        case Promotion::Rook:
+            board.squares[m.to] = (board.whiteToMove) ? 'R' : 'r';
+            break;
+        case Promotion::Queen:
+            board.squares[m.to] = (board.whiteToMove) ? 'Q' : 'q';
+            break;
+        }
+    }
+    board.whiteToMove = !board.whiteToMove;
+}
+
 std::vector<Move> generateMoves(const Board& board) {
     std::vector<Move> moves;
     const int knightOffsets[8][2] = {{1,2},{2,1},{2,-1},{1,-2},{-1,-2},{-2,-1},{-2,1},{-1,2}};
