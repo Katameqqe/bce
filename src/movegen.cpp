@@ -1,5 +1,31 @@
 #include "movegen.hpp"
 #include <ranges>
+#include <span>
+
+namespace 
+{
+bool emptyCastleLine(const Board& b, bool isWhite, bool QueenSide) {
+    std::span<const char> line{b.squares};
+    if (isWhite) line = line.subspan(0, 8);
+    else line = line = line.subspan(7*8, 8);
+    
+    if (QueenSide)
+    {
+        if (   line[1] == '.'
+            && line[2] == '.'
+            && line[3] == '.')
+            return true;
+        else 
+            return false;
+    } else {
+        if (   line[5] == '.'
+            && line[6] == '.')
+            return true;
+        else 
+            return false;
+    }
+}
+} // namespace 
 
 
 std::string MovesToString(std::vector<Move>& moves, int base) {
@@ -24,8 +50,38 @@ std::string MovesToString(std::vector<Move>& moves, int base) {
     return out;
 }
 
+void undoLastMove(Board& board) {
+    auto& history = board.getMoveHistory();
+    MoveEntry m = history.back();
+    if(m.move.promotion == Promotion::None){
+        board.squares[m.move.from] = board.squares[m.move.to]; 
+        board.squares[m.move.to] = m.piece;
+    }
+    else {
+        board.squares[m.move.from] = (!board.whiteToMove) ? 'P' : 'p';
+        board.squares[m.move.to] = m.piece;
+    }
+
+    board.enPassant = m.enPassant;
+    board.flags = m.flags;
+    board.whiteToMove = !board.whiteToMove;
+    history.pop_back();
+}
+
 void makeMove(Board& board, const Move& m) {
     char RemovedPiece = board.squares[m.to];
+    board.addPlayedMove(MoveEntry{
+        .move = m,
+        .piece = RemovedPiece,
+        .enPassant = board.enPassant,
+        .flags = board.flags
+    });
+    if ((RemovedPiece == 'R' || RemovedPiece == 'r')) {
+        if      (m.to == 0) board.flags.WhiteCastleQ = false;
+        else if (m.to == 7) board.flags.WhiteCastleK = false;
+        else if (m.to == 7*8) board.flags.BlackCastleQ = false;
+        else if (m.to == 7*8+7) board.flags.BlackCastleK = false;
+    }
     char movedPiece = board.squares[m.from];
     board.squares[m.to] = movedPiece;
     board.squares[m.from] = '.';
@@ -33,60 +89,72 @@ void makeMove(Board& board, const Move& m) {
     switch (m.flag)
     {
     case Flag::DoublePush:
-        res = (board.whiteToMove) ? m.to - 8 + m.to % 8 : m.to + 8 + m.to % 8;
+        res = (board.whiteToMove) ? m.to - 8 : m.to + 8;
         board.enPassant = res;
         break;
     case Flag::EnPassant:
-        res = (board.whiteToMove) ? m.to - 8 + m.to % 8 : m.to + 8 + m.to % 8;
+        res = (board.whiteToMove) ? m.to - 8 : m.to + 8;
         RemovedPiece = board.squares[res];
         board.squares[res] = '.';
+        break;
     case Flag::Castle:
+        if (m.to % 8 == 1) {
+            board.squares[m.to+1] = board.squares[m.to-1];
+            board.squares[m.to-1] = '.';
+        }
+        else {
+            board.squares[m.to-1] = board.squares[m.to+1];
+            board.squares[m.to+1] = '.';
+        }
+        break;
+    case Flag::Normal:
         break;
     }
     if (m.flag != Flag::DoublePush) {
         board.enPassant = 0;
     }
-    if ((movedPiece == 'R' && (board.WhiteCastleK || board.WhiteCastleQ )) ||
-        (movedPiece == 'r' && (board.BlackCastleK || board.BlackCastleQ ))) {
+    if ((movedPiece == 'R' && (board.flags.WhiteCastleK || board.flags.WhiteCastleQ )) ||
+        (movedPiece == 'r' && (board.flags.BlackCastleK || board.flags.BlackCastleQ ))) {
         uint8_t file = m.from % 8;
-        if (board.whiteToMove && (file == 0)) {
-            board.WhiteCastleQ = false;
+        uint8_t rank = m.from / 8;
+        if (board.whiteToMove && (file == 0 && rank == 0)) {
+            board.flags.WhiteCastleQ = false;
         } else if (board.whiteToMove && (file == 7)) {
-            board.WhiteCastleK = false;
+            board.flags.WhiteCastleK = false;
         }
-        if (!board.whiteToMove && (file == 0)) {
-            board.BlackCastleQ = false;
+        if (!board.whiteToMove && (file == 0 && rank == 7)) {
+            board.flags.BlackCastleQ = false;
         } else if (!board.whiteToMove && (file == 7)) {
-            board.BlackCastleK = false;
+            board.flags.BlackCastleK = false;
         }
     }
-    if ((movedPiece == 'K' && (board.WhiteCastleK || board.WhiteCastleQ )) ||
-        (movedPiece == 'k' && (board.BlackCastleK || board.BlackCastleQ ))) {
+    if ((movedPiece == 'K' && (board.flags.WhiteCastleK || board.flags.WhiteCastleQ )) ||
+        (movedPiece == 'k' && (board.flags.BlackCastleK || board.flags.BlackCastleQ ))) {
         if (board.whiteToMove && m.from == (0*8+4)) {
-            board.WhiteCastleK = false;
-            board.WhiteCastleQ = false;
+            board.flags.WhiteCastleK = false;
+            board.flags.WhiteCastleQ = false;
         }
-        else if (!board.whiteToMove && m.from == (7*7+4)) {
-            board.BlackCastleK = false;
-            board.BlackCastleQ = false;
+        else if (!board.whiteToMove && m.from == (7*8+4)) {
+            board.flags.BlackCastleK = false;
+            board.flags.BlackCastleQ = false;
         }
     }
-    if (m.promotion != Promotion::None) {
-        switch (m.promotion)
-        {
-        case Promotion::Knight:
-            board.squares[m.to] = (board.whiteToMove) ? 'K' : 'k';
-            break;
-        case Promotion::Bishop:
-            board.squares[m.to] = (board.whiteToMove) ? 'B' : 'b';
-            break;
-        case Promotion::Rook:
-            board.squares[m.to] = (board.whiteToMove) ? 'R' : 'r';
-            break;
-        case Promotion::Queen:
-            board.squares[m.to] = (board.whiteToMove) ? 'Q' : 'q';
-            break;
-        }
+    switch (m.promotion)
+    {
+    case Promotion::Knight:
+        board.squares[m.to] = (board.whiteToMove) ? 'N' : 'n';
+        break;
+    case Promotion::Bishop:
+        board.squares[m.to] = (board.whiteToMove) ? 'B' : 'b';
+        break;
+    case Promotion::Rook:
+        board.squares[m.to] = (board.whiteToMove) ? 'R' : 'r';
+        break;
+    case Promotion::Queen:
+        board.squares[m.to] = (board.whiteToMove) ? 'Q' : 'q';
+        break;
+    case Promotion::None:
+        break;
     }
     board.whiteToMove = !board.whiteToMove;
 }
@@ -233,6 +301,14 @@ std::vector<Move> generateMoves(const Board& board) {
                 uint8_t to = r * 8 + f;
                 char target = board.squares[to];
                 bool targetIsOwn = ((target >= 'A' && target <= 'Z') == isWhite);
+                if (board.enPassant == to && target == '.') {
+                    moves.push_back(Move{
+                        .from = sq,
+                        .to = to,
+                        .promotion = Promotion::None,
+                        .flag = Flag::EnPassant
+                    });
+                }
                 if (targetIsOwn || target == '.') continue;
                 moves.push_back(Move{
                     .from = sq,
@@ -275,8 +351,43 @@ std::vector<Move> generateMoves(const Board& board) {
                     .flag = Flag::Normal
                 });
             }
+            if (isWhite) {
+                if (board.flags.WhiteCastleQ && emptyCastleLine(board, isWhite, true)) {
+                    moves.push_back(Move{
+                        .from = sq,
+                        .to = 1,
+                        .promotion = Promotion::None,
+                        .flag = Flag::Castle
+                    });
+                }
+                if (board.flags.WhiteCastleK && emptyCastleLine(board, isWhite, false)) {
+                    moves.push_back(Move{
+                        .from = sq,
+                        .to = 6,
+                        .promotion = Promotion::None,
+                        .flag = Flag::Castle
+                    });
+                }
+            } else {
+                if (board.flags.BlackCastleQ && emptyCastleLine(board, isWhite, true)) {
+                    moves.push_back(Move{
+                        .from = sq,
+                        .to = 7*8+1,
+                        .promotion = Promotion::None,
+                        .flag = Flag::Castle
+                    });
+                }
+                if (board.flags.BlackCastleK && emptyCastleLine(board, isWhite, false)) {
+                    moves.push_back(Move{
+                        .from = sq,
+                        .to = 7*8+6,
+                        .promotion = Promotion::None,
+                        .flag = Flag::Castle
+                    });
+                }
+            }
         }
-        // TODO: advanced moves, pins and checks
+        // TODO: Legality checks
     }
     return moves;
 }

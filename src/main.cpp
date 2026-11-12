@@ -2,20 +2,27 @@
 #include "board.hpp"
 #include "movegen.hpp"
 
+size_t depth_perft(Board& b, int depth) {
+    if (depth == 0) return generateMoves(b).size();
+    std::vector<Move> moves = generateMoves(b);
+    size_t allMoves = 0;
+    for (auto &m : moves)
+    {
+        b.makeMove(m);
+        allMoves += depth_perft(b, depth-1);
+        b.undoMove();
+    }
+    return allMoves;
+}
+
 int main() {
     Board board;
     std::cout << board.toString() << std::endl;
     
     Board b;
-    b.whiteToMove = true;
-    b.squares.fill('.');
-    const int pos = 1 * 8 + 4;
-    b.squares[pos] = 'P';
-    b.squares[2 * 8 + 3] = 'b';
-    b.squares[3 * 8 + 5] = 'P';
-    b.squares[7 * 8 + 1] = 'P';
-    b.squares[2 * 8 + 6] = 'p';
-    std::cout << b.toString() << std::endl;
-    std::vector<Move> moves = generateMoves(b);
-    std::cout << MovesToString(moves, pos) << std::endl;
+    printf(" Depth %d:\t%zu\n", 1, depth_perft(b, 0));
+    printf(" Depth %d:\t%zu\n", 2, depth_perft(b, 1));
+    printf(" Depth %d:\t%zu\n", 3, depth_perft(b, 2));
+    printf(" Depth %d:\t%zu\n", 4, depth_perft(b, 3));
+    printf(" Depth %d:\t%zu\n", 5, depth_perft(b, 4));
 }

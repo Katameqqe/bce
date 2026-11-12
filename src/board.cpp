@@ -1,4 +1,5 @@
 #include "board.hpp"
+#include "movegen.hpp"
 
 Board::Board() { setStartPosition(); }
 
@@ -12,6 +13,22 @@ void Board::setStartPosition() {
         squares[7 * 8 + f] = static_cast<char>(back[f] + 32);
     }
     whiteToMove = true;
+}
+
+void Board::makeMove(const Move& m) {
+    ::makeMove(*this, std::move(m));
+}
+
+void Board::undoMove() {
+    ::undoLastMove(*this);
+}
+
+void Board::addPlayedMove(const MoveEntry& m) {
+    playedMoves.push_back(std::move(m));
+}
+
+std::vector<MoveEntry>& Board::getMoveHistory() {
+    return playedMoves;
 }
 
 std::string Board::toString() const {
